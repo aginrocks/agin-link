@@ -1,0 +1,26 @@
+[package]
+name = "entity"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+ts-rs = ["dep:ts-rs"]
+default = []
+
+[dependencies]
+influxdb2 = "0.5.2"
+sea-orm = { version = "2.0.0-rc.28", features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "with-chrono",
+    "with-json",
+    "with-uuid",
+    "schema-sync",
+    "entity-registry",
+] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+serde_with = "3.18.0"
+strum = { version = "0.28.0", features = ["derive"] }
+utoipa = "5.4.0"
+ts-rs = { version = "12.0.1", features = ["chrono-impl"], optional = true }
