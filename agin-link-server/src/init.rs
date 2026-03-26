@@ -66,9 +66,7 @@ pub async fn init_listener(settings: &Settings) -> Result<TcpListener> {
 
 pub async fn init_database(settings: &Settings) -> Result<sea_orm::DatabaseConnection> {
     let db = Database::connect(settings.db.connection_string.clone()).await?;
-    db.get_schema_registry("server::entity::*")
-        .sync(&db)
-        .await?;
+    db.get_schema_registry("entity::*").sync(&db).await?;
 
     Ok(db)
 }

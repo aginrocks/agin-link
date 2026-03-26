@@ -1,76 +1,40 @@
-use axum::{
-    body::Body,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
-use color_eyre::Report;
-use serde_json::json;
-use tracing::error;
+use axum::{extract::rejection::JsonRejection, response::IntoResponse};
+use color_eyre::eyre::Report;
+use sea_orm::DbErr;
+use serde::Serialize;
+use strum::{Display, EnumDiscriminants};
+use thiserror::Error;
+use utoipa::ToSchema;
 
-#[derive(Debug)]
-pub struct AxumError {
-    pub report: Report,
-    pub status_code: StatusCode,
+#[derive(Error, Debug, EnumDiscriminants)]
+#[strum_discriminants(name(ErrorCode))]
+#[strum_discriminants(derive(Serialize, Display, ToSchema))]
+#[strum_discriminants(vis(pub))]
+pub enum ApiError {
+    #[error("Invalid body: {0}")]
+    JsonRejection(#[from] JsonRejection),
+
+    #[error("Database error: {0}")]
+    Database(#[from] DbErr),
+
+    #[error(transparent)]
+    Unknown(#[from] Report),
 }
 
-impl AxumError {
-    pub fn new(report: Report) -> Self {
-        Self {
-            report,
-            status_code: StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
+#[derive(Serialize, ToSchema)]
+pub struct ErrorResponse {
+    /// Machine-readable error code
+    pub code: ErrorCode,
 
-    pub fn with_status(report: Report, status_code: StatusCode) -> Self {
-        Self {
-            report,
-            status_code,
-        }
-    }
+    /// Human-readable message
+    pub message: String,
 
-    pub fn bad_request(report: Report) -> Self {
-        Self::with_status(report, StatusCode::BAD_REQUEST)
-    }
-
-    pub fn unauthorized(report: Report) -> Self {
-        Self::with_status(report, StatusCode::UNAUTHORIZED)
-    }
-
-    pub fn forbidden(report: Report) -> Self {
-        Self::with_status(report, StatusCode::FORBIDDEN)
-    }
-
-    pub fn not_found(report: Report) -> Self {
-        Self::with_status(report, StatusCode::NOT_FOUND)
-    }
-
-    pub fn conflict(report: Report) -> Self {
-        Self::with_status(report, StatusCode::CONFLICT)
-    }
-
-    pub fn unprocessable_entity(report: Report) -> Self {
-        Self::with_status(report, StatusCode::UNPROCESSABLE_ENTITY)
-    }
+    /// Optional key-value details
+    pub details: Option<serde_json::Value>,
 }
 
-impl<E: Into<Report>> From<E> for AxumError {
-    fn from(error: E) -> Self {
-        Self::new(error.into())
+impl IntoResponse for ApiError {
+    fn into_response(self) -> axum::response::Response {
+        todo!()
     }
 }
-
-impl IntoResponse for AxumError {
-    fn into_response(self) -> Response {
-        error!(error = ?self.report, "An error occurred in an axum handler");
-        let body = json!({
-            "error": self.report.to_string()
-        });
-        Response::builder()
-            .status(self.status_code)
-            .header("Content-Type", "application/json")
-            .body(Body::from(body.to_string()))
-            .unwrap_or_else(|e| format!("{e:?}").into_response())
-    }
-}
-
-pub type AxumResult<T, E = AxumError> = std::result::Result<T, E>;
